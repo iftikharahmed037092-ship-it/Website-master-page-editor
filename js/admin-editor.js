@@ -1,655 +1,2038 @@
-/**
- * admin-editor.js
- * Part 1 — Private Editor Foundation
- *
- * یہ فائل پورے Private Editor کا "Controller" ہے:
- * - Tabs کے درمیان switching
- * - Forms کو data کے ساتھ bind کرنا
- * - Save/Load/New/Delete Client
- * - Image upload (base64) ہینڈل کرنا
- * - ہر تبدیلی پر Live Preview کو update کرنا
- *
- * انحصار (اسی ترتیب میں HTML میں load ہونی چاہئیں):
- * store-data.js -> validation.js -> storage-manager.js -> product-manager.js -> live-preview.js -> admin-editor.js
- */
-
 const EditorState = {
   currentClient: null,
   activeTab: "store-info",
   activeProductId: null
 };
 
-/* -------------------------------------------------------
-   Initialization
-------------------------------------------------------- */
 document.addEventListener("DOMContentLoaded", () => {
-  initClientSelector();
-  bindTabButtons();
-  bindGlobalActions();
-  loadInitialClient();
+
+  try {
+
+    bindTabButtons();
+    bindGlobalActions();
+    loadInitialClient();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Editor شروع نہیں ہو سکا: " + error.message);
+  }
 });
 
+/* ================= INITIALIZATION ================= */
+
 function loadInitialClient() {
-  const activeId = StorageManager.getActiveClientId();
-  const existing = activeId ? StorageManager.loadClient(activeId) : null;
-  EditorState.currentClient = existing || createEmptyClientData();
+
+  const activeId =
+    StorageManager.getActiveClientId();
+
+  const existing =
+    activeId
+      ? StorageManager.loadClient(activeId)
+      : null;
+
+  EditorState.currentClient =
+    existing || createEmptyClientData();
+
   if (!existing) {
-    EditorState.currentClient.meta.clientId = generateId("client");
+
+    EditorState.currentClient.meta.clientId =
+      generateId("client");
   }
+
   refreshClientDropdown();
   renderActiveTab();
   updatePreview();
 }
 
-/* -------------------------------------------------------
-   Tabs
-------------------------------------------------------- */
+/* ================= TABS ================= */
+
 function bindTabButtons() {
-  document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      EditorState.activeTab = btn.dataset.tab;
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      renderActiveTab();
+
+  document.querySelectorAll(".tab-btn")
+    .forEach(btn => {
+
+      btn.addEventListener("click", () => {
+
+        EditorState.activeTab =
+          btn.dataset.tab;
+
+        EditorState.activeProductId = null;
+
+        document.querySelectorAll(".tab-btn")
+          .forEach(b =>
+            b.classList.remove("active")
+          );
+
+        btn.classList.add("active");
+
+        renderActiveTab();
+
+      });
+
     });
-  });
 }
 
 function renderActiveTab() {
-  const container = document.getElementById("tabContent");
+
+  const container =
+    document.getElementById("tabContent");
+
   container.innerHTML = "";
 
   switch (EditorState.activeTab) {
-    case "store-info": return renderStoreInfoTab(container);
-    case "branding": return renderBrandingTab(container);
-    case "products": return renderProductsTab(container);
-    case "policies": return renderPoliciesTab(container);
-    case "contact": return renderContactTab(container);
-    case "clients": return renderClientsTab(container);
+
+    case "store-info":
+      renderStoreInfoTab(container);
+      break;
+
+    case "branding":
+      renderBrandingTab(container);
+      break;
+
+    case "products":
+      renderProductsTab(container);
+      break;
+
+    case "policies":
+      renderPoliciesTab(container);
+      break;
+
+    case "contact":
+      renderContactTab(container);
+      break;
+
+    case "clients":
+      renderClientsTab(container);
+      break;
   }
 }
 
-/* -------------------------------------------------------
-   Tab: Store Info
-------------------------------------------------------- */
-function renderStoreInfoTab(container) {
-  const s = EditorState.currentClient.store;
-  container.innerHTML = `
-    <h2>Store Information</h2>
-    <label>Store Name *</label>
-    <input type="text" id="fld-storeName" value="${escapeAttr(s.storeName)}" placeholder="مثلاً ABC Garments">
+/* ================= STORE INFO ================= */
 
-    <label>Tagline (مختصر جملہ)</label>
-    <input type="text" id="fld-tagline" value="${escapeAttr(s.tagline)}" placeholder="مثلاً بہترین قیمت، بہترین کوالٹی">
+function renderStoreInfoTab(container) {
+
+  const s =
+    EditorState.currentClient.store;
+
+  container.innerHTML = `
+
+    <h2>🏪 Store Information</h2>
+
+    <label>Store Name *</label>
+
+    <input
+      type="text"
+      id="fld-storeName"
+      value="${escapeAttr(s.storeName)}"
+      placeholder="مثلاً ABC Garments">
+
+    <label>Tagline</label>
+
+    <input
+      type="text"
+      id="fld-tagline"
+      value="${escapeAttr(s.tagline)}"
+      placeholder="بہترین قیمت، بہترین کوالٹی">
 
     <label>About Text</label>
-    <textarea id="fld-aboutText" rows="5" placeholder="اپنے اسٹور کا مختصر تعارف">${escapeHtml(s.aboutText)}</textarea>
+
+    <textarea
+      id="fld-aboutText"
+      rows="6"
+      placeholder="اپنے اسٹور کا تعارف">${escapeHtml(s.aboutText)}</textarea>
+
+    <div id="storeInfoErrors" class="error-box"></div>
 
     <div class="form-actions">
-      <button class="btn-primary" id="btnSaveStoreInfo">محفوظ کریں</button>
+
+      <button
+        class="btn btn-primary"
+        id="btnSaveStoreInfo">
+
+        💾 محفوظ کریں
+
+      </button>
+
     </div>
-    <div id="storeInfoErrors" class="error-box"></div>
   `;
 
-  document.getElementById("btnSaveStoreInfo").addEventListener("click", () => {
+  [
+    "fld-storeName",
+    "fld-tagline",
+    "fld-aboutText"
+  ]
+  .forEach(id => {
+
+    document.getElementById(id)
+      .addEventListener("input", () => {
+
+        s.storeName =
+          val("fld-storeName");
+
+        s.tagline =
+          val("fld-tagline");
+
+        s.aboutText =
+          val("fld-aboutText");
+
+        updatePreview();
+
+      });
+  });
+
+  document.getElementById(
+    "btnSaveStoreInfo"
+  ).addEventListener("click", () => {
+
     s.storeName = val("fld-storeName");
     s.tagline = val("fld-tagline");
     s.aboutText = val("fld-aboutText");
 
-    const result = Validation.validateStoreInfo(s, EditorState.currentClient.contact);
-    showErrors("storeInfoErrors", result.valid ? [] : result.errors.filter(e => e.includes("Store Name")));
-    persistAndPreview();
-  });
+    const result =
+      Validation.validateStoreInfo(
+        s,
+        EditorState.currentClient.contact
+      );
 
-  // ٹائپ کرتے ہی preview فوری اپڈیٹ ہو (بغیر save کیے بھی)
-  ["fld-storeName", "fld-tagline", "fld-aboutText"].forEach(id => {
-    document.getElementById(id).addEventListener("input", () => {
-      s.storeName = val("fld-storeName");
-      s.tagline = val("fld-tagline");
-      s.aboutText = val("fld-aboutText");
-      updatePreview();
-    });
+    showErrors(
+      "storeInfoErrors",
+      result.errors
+    );
+
+    if (result.valid) {
+
+      saveCurrentClient();
+
+      flashMessage("Store Information محفوظ ہو گئی۔");
+    }
   });
 }
 
-/* -------------------------------------------------------
-   Tab: Branding (Logo, Colors, Banners)
-------------------------------------------------------- */
+/* ================= BRANDING ================= */
+
 function renderBrandingTab(container) {
-  const s = EditorState.currentClient.store;
+
+  const s =
+    EditorState.currentClient.store;
+
+  const banners =
+    Array.isArray(s.bannerImages)
+      ? s.bannerImages
+      : [];
+
   container.innerHTML = `
-    <h2>Branding</h2>
+
+    <h2>🎨 Branding & Banners</h2>
 
     <label>Logo</label>
+
     <div class="image-row">
-      ${s.logoUrl ? `<img class="thumb" src="${s.logoUrl}">` : `<div class="thumb thumb-empty">No Logo</div>`}
-      <input type="file" id="fld-logoUpload" accept="image/*">
+
+      ${
+        s.logoUrl
+          ? `
+            <div class="thumb-wrap">
+
+              <img
+                class="thumb"
+                src="${escapeAttr(s.logoUrl)}">
+
+              <button
+                class="thumb-remove"
+                id="btnRemoveLogo">
+
+                ✕
+
+              </button>
+
+            </div>
+          `
+          : `
+            <div class="thumb thumb-empty">
+              No Logo
+            </div>
+          `
+      }
+
+      <input
+        type="file"
+        id="fld-logoUpload"
+        accept="image/*">
+
     </div>
 
     <label>Primary Color</label>
-    <input type="color" id="fld-primaryColor" value="${s.primaryColor || "#1a1a1a"}">
+
+    <input
+      type="color"
+      id="fld-primaryColor"
+      value="${escapeAttr(s.primaryColor || "#16a34a")}">
 
     <label>Secondary Color</label>
-    <input type="color" id="fld-secondaryColor" value="${s.secondaryColor || "#d4a373"}">
 
-    <label>Banner Images (متعدد منتخب کر سکتے ہیں)</label>
-    <input type="file" id="fld-bannerUpload" accept="image/*" multiple>
-    <div class="image-row" id="bannerThumbs">
-      ${s.bannerImages.map((b, i) => `
-        <div class="thumb-wrap">
-          <img class="thumb" src="${b.url}">
-          <button class="thumb-remove" data-idx="${i}">✕</button>
-        </div>
-      `).join("")}
+    <input
+      type="color"
+      id="fld-secondaryColor"
+      value="${escapeAttr(s.secondaryColor || "#0ea5e9")}">
+
+    <label>Banner Images</label>
+
+    <input
+      type="file"
+      id="fld-bannerUpload"
+      accept="image/*"
+      multiple>
+
+    <div
+      class="image-row"
+      id="bannerThumbs">
+
+      ${
+        banners.length
+          ? banners.map((b, i) => `
+
+            <div class="thumb-wrap">
+
+              <img
+                class="thumb"
+                src="${escapeAttr(b.url)}">
+
+              <button
+                class="thumb-remove"
+                data-banner-remove="${i}">
+
+                ✕
+
+              </button>
+
+            </div>
+
+          `).join("")
+          : `
+            <em>
+              ابھی کوئی banner شامل نہیں کیا گیا۔
+            </em>
+          `
+      }
+
     </div>
+
+    <div id="bannerErrors" class="error-box"></div>
   `;
 
-  document.getElementById("fld-logoUpload").addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    s.logoUrl = await fileToDataURL(file);
-    persistAndPreview();
-    renderActiveTab();
-  });
+  const logoInput =
+    document.getElementById(
+      "fld-logoUpload"
+    );
 
-  document.getElementById("fld-primaryColor").addEventListener("input", (e) => {
-    s.primaryColor = e.target.value;
-    updatePreview();
-  });
-  document.getElementById("fld-secondaryColor").addEventListener("input", (e) => {
-    s.secondaryColor = e.target.value;
-    updatePreview();
-  });
-  document.getElementById("fld-primaryColor").addEventListener("change", persistAndPreview);
-  document.getElementById("fld-secondaryColor").addEventListener("change", persistAndPreview);
+  logoInput.addEventListener(
+    "change",
+    async e => {
 
-  document.getElementById("fld-bannerUpload").addEventListener("change", async (e) => {
-    const files = Array.from(e.target.files);
-    for (const file of files) {
-      const url = await fileToDataURL(file);
-      s.bannerImages.push({ url, caption: "", link: "" });
-    }
-    persistAndPreview();
-    renderActiveTab();
-  });
+      const file = e.target.files[0];
 
-  container.querySelectorAll(".thumb-remove").forEach(btn => {
-    btn.addEventListener("click", () => {
-      s.bannerImages.splice(Number(btn.dataset.idx), 1);
-      persistAndPreview();
+      if (!file) return;
+
+      if (!isImageFile(file)) {
+
+        showErrors(
+          "bannerErrors",
+          ["صرف image فائل استعمال کریں۔"]
+        );
+
+        return;
+      }
+
+      s.logoUrl =
+        await fileToDataURL(file);
+
+      saveCurrentClient();
       renderActiveTab();
-    });
+      updatePreview();
+
+    }
+  );
+
+  const removeLogo =
+    document.getElementById(
+      "btnRemoveLogo"
+    );
+
+  if (removeLogo) {
+
+    removeLogo.addEventListener(
+      "click",
+      () => {
+
+        s.logoUrl = "";
+
+        saveCurrentClient();
+        renderActiveTab();
+        updatePreview();
+
+      }
+    );
+  }
+
+  document.getElementById(
+    "fld-primaryColor"
+  ).addEventListener("input", e => {
+
+    s.primaryColor = e.target.value;
+
+    updatePreview();
+
+  });
+
+  document.getElementById(
+    "fld-secondaryColor"
+  ).addEventListener("input", e => {
+
+    s.secondaryColor = e.target.value;
+
+    updatePreview();
+
+  });
+
+  document.getElementById(
+    "fld-primaryColor"
+  ).addEventListener(
+    "change",
+    saveCurrentClient
+  );
+
+  document.getElementById(
+    "fld-secondaryColor"
+  ).addEventListener(
+    "change",
+    saveCurrentClient
+  );
+
+  document.getElementById(
+    "fld-bannerUpload"
+  ).addEventListener(
+    "change",
+    async e => {
+
+      const files =
+        Array.from(e.target.files || []);
+
+      for (const file of files) {
+
+        if (!isImageFile(file)) {
+          continue;
+        }
+
+        const url =
+          await fileToDataURL(file);
+
+        banners.push({
+          url,
+          caption: "",
+          link: ""
+        });
+      }
+
+      s.bannerImages = banners;
+
+      saveCurrentClient();
+      renderActiveTab();
+      updatePreview();
+
+    }
+  );
+
+  container.querySelectorAll(
+    "[data-banner-remove]"
+  ).forEach(btn => {
+
+    btn.addEventListener(
+      "click",
+      () => {
+
+        const index =
+          Number(btn.dataset.bannerRemove);
+
+        banners.splice(index, 1);
+
+        s.bannerImages = banners;
+
+        saveCurrentClient();
+        renderActiveTab();
+        updatePreview();
+
+      }
+    );
   });
 }
 
-/* -------------------------------------------------------
-   Tab: Products
-------------------------------------------------------- */
+/* ================= PRODUCTS ================= */
+
 function renderProductsTab(container) {
-  const client = EditorState.currentClient;
+
+  const client =
+    EditorState.currentClient;
 
   if (EditorState.activeProductId) {
-    return renderProductEditor(container, EditorState.activeProductId);
+
+    renderProductEditor(
+      container,
+      EditorState.activeProductId
+    );
+
+    return;
   }
 
   container.innerHTML = `
-    <h2>Products</h2>
+
+    <h2>📦 Products</h2>
+
     <div class="form-actions">
-      <button class="btn-primary" id="btnAddProduct">+ نیا پروڈکٹ شامل کریں</button>
-      <button class="btn-secondary" id="btnAddCategory">+ نئی کیٹیگری</button>
+
+      <button
+        class="btn btn-primary"
+        id="btnAddProduct">
+
+        + نیا Product
+
+      </button>
+
+      <button
+        class="btn-secondary"
+        id="btnAddCategory">
+
+        + نئی Category
+
+      </button>
+
     </div>
 
     <div class="category-list">
-      ${client.categories.map(c => `<span class="chip">${escapeHtml(c.name)} <button data-cat="${c.id}" class="chip-x">✕</button></span>`).join("") || "<em>ابھی کوئی کیٹیگری نہیں۔</em>"}
+
+      ${
+        client.categories.length
+          ? client.categories.map(c => `
+
+            <span class="chip">
+
+              ${escapeHtml(c.name)}
+
+              <button
+                class="chip-x"
+                data-cat="${escapeAttr(c.id)}">
+
+                ✕
+
+              </button>
+
+            </span>
+
+          `).join("")
+          : `
+            <em>
+              ابھی کوئی category نہیں۔
+            </em>
+          `
+      }
+
     </div>
 
-    <table class="data-table">
-      <thead><tr><th>تصویر</th><th>نام</th><th>قیمت</th><th>Variants</th><th>Total Stock</th><th></th></tr></thead>
-      <tbody>
-        ${client.products.map(p => `
+    <div style="overflow:auto">
+
+      <table class="data-table">
+
+        <thead>
+
           <tr>
-            <td>${p.images[0] ? `<img class="thumb-sm" src="${p.images[0]}">` : "—"}</td>
-            <td>${escapeHtml(p.name || "(بلا عنوان)")}</td>
-            <td>Rs. ${p.price || 0}</td>
-            <td>${p.variants.length}</td>
-            <td>${p.variants.reduce((sum, v) => sum + Number(v.stock || 0), 0)}</td>
-            <td>
-              <button class="btn-small" data-edit="${p.id}">Edit</button>
-              <button class="btn-small btn-danger" data-del="${p.id}">Delete</button>
-            </td>
+
+            <th>تصویر</th>
+            <th>نام</th>
+            <th>قیمت</th>
+            <th>Variants</th>
+            <th>Stock</th>
+            <th>Actions</th>
+
           </tr>
-        `).join("") || `<tr><td colspan="6"><em>ابھی کوئی پروڈکٹ شامل نہیں کیا گیا۔</em></td></tr>`}
-      </tbody>
-    </table>
+
+        </thead>
+
+        <tbody>
+
+          ${
+            client.products.length
+              ? client.products.map(p => {
+
+                  const stock =
+                    p.variants.reduce(
+                      (sum, v) =>
+                        sum + Number(v.stock || 0),
+                      0
+                    );
+
+                  return `
+
+                  <tr>
+
+                    <td>
+
+                      ${
+                        p.images?.[0]
+                          ? `
+                            <img
+                              class="thumb-sm"
+                              src="${escapeAttr(p.images[0])}">
+                          `
+                          : "—"
+                      }
+
+                    </td>
+
+                    <td>
+
+                      ${escapeHtml(
+                        p.name ||
+                        "(بلا عنوان)"
+                      )}
+
+                    </td>
+
+                    <td>
+
+                      Rs. ${Number(
+                        p.price || 0
+                      ).toLocaleString()}
+
+                    </td>
+
+                    <td>
+                      ${p.variants.length}
+                    </td>
+
+                    <td>
+                      ${stock}
+                    </td>
+
+                    <td>
+
+                      <button
+                        class="btn-small"
+                        data-edit="${escapeAttr(p.id)}">
+
+                        Edit
+
+                      </button>
+
+                      <button
+                        class="btn-small btn-danger"
+                        data-del="${escapeAttr(p.id)}">
+
+                        Delete
+
+                      </button>
+
+                    </td>
+
+                  </tr>
+
+                `;
+
+                }).join("")
+              : `
+                <tr>
+
+                  <td colspan="6">
+
+                    <em>
+                      ابھی کوئی Product نہیں۔
+                    </em>
+
+                  </td>
+
+                </tr>
+              `
+          }
+
+        </tbody>
+
+      </table>
+
+    </div>
   `;
 
-  document.getElementById("btnAddProduct").addEventListener("click", () => {
-    const p = ProductManager.addProduct(client);
-    EditorState.activeProductId = p.id;
-    persistAndPreview();
+  document.getElementById(
+    "btnAddProduct"
+  ).addEventListener("click", () => {
+
+    const product =
+      ProductManager.addProduct(client);
+
+    EditorState.activeProductId =
+      product.id;
+
+    saveCurrentClient();
     renderActiveTab();
+
   });
 
-  document.getElementById("btnAddCategory").addEventListener("click", () => {
-    const name = prompt("نئی کیٹیگری کا نام درج کریں:");
-    if (name && name.trim()) {
-      ProductManager.addCategory(client, name.trim());
-      persistAndPreview();
+  document.getElementById(
+    "btnAddCategory"
+  ).addEventListener("click", () => {
+
+    const name =
+      prompt("نئی Category کا نام:");
+
+    if (!name?.trim()) return;
+
+    try {
+
+      ProductManager.addCategory(
+        client,
+        name
+      );
+
+      saveCurrentClient();
       renderActiveTab();
+      updatePreview();
+
+    } catch (error) {
+
+      alert(error.message);
     }
   });
 
-  container.querySelectorAll(".chip-x").forEach(btn => {
-    btn.addEventListener("click", () => {
-      ProductManager.deleteCategory(client, btn.dataset.cat);
-      persistAndPreview();
-      renderActiveTab();
-    });
-  });
+  container.querySelectorAll(
+    "[data-edit]"
+  ).forEach(btn => {
 
-  container.querySelectorAll("[data-edit]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      EditorState.activeProductId = btn.dataset.edit;
-      renderActiveTab();
-    });
-  });
+    btn.addEventListener(
+      "click",
+      () => {
 
-  container.querySelectorAll("[data-del]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (confirm("کیا واقعی یہ پروڈکٹ حذف کرنا چاہتے ہیں؟")) {
-        ProductManager.deleteProduct(client, btn.dataset.del);
-        persistAndPreview();
+        EditorState.activeProductId =
+          btn.dataset.edit;
+
         renderActiveTab();
+
       }
-    });
+    );
+  });
+
+  container.querySelectorAll(
+    "[data-del]"
+  ).forEach(btn => {
+
+    btn.addEventListener(
+      "click",
+      () => {
+
+        if (
+          !confirm(
+            "کیا واقعی یہ Product delete کرنا چاہتے ہیں؟"
+          )
+        ) return;
+
+        ProductManager.deleteProduct(
+          client,
+          btn.dataset.del
+        );
+
+        saveCurrentClient();
+        renderActiveTab();
+        updatePreview();
+
+      }
+    );
+  });
+
+  container.querySelectorAll(
+    "[data-cat]"
+  ).forEach(btn => {
+
+    btn.addEventListener(
+      "click",
+      () => {
+
+        if (
+          !confirm(
+            "Category delete کرنے سے اس category کے products Uncategorized ہو جائیں گے۔ جاری رکھیں؟"
+          )
+        ) return;
+
+        ProductManager.deleteCategory(
+          client,
+          btn.dataset.cat
+        );
+
+        saveCurrentClient();
+        renderActiveTab();
+        updatePreview();
+
+      }
+    );
   });
 }
 
-function renderProductEditor(container, productId) {
-  const client = EditorState.currentClient;
-  const product = ProductManager.getProduct(client, productId);
+/* ================= PRODUCT EDITOR ================= */
+
+function renderProductEditor(
+  container,
+  productId
+) {
+
+  const client =
+    EditorState.currentClient;
+
+  const product =
+    ProductManager.getProduct(
+      client,
+      productId
+    );
+
+  if (!product) {
+
+    EditorState.activeProductId = null;
+
+    renderProductsTab(container);
+
+    return;
+  }
 
   container.innerHTML = `
-    <button class="btn-link" id="btnBackToList">← Products کی فہرست پر واپس جائیں</button>
-    <h2>Edit Product</h2>
+
+    <button
+      class="btn-link"
+      id="btnBackToList">
+
+      ← Products کی فہرست
+
+    </button>
+
+    <h2>📦 Edit Product</h2>
 
     <label>Product Name *</label>
-    <input type="text" id="fld-pName" value="${escapeAttr(product.name)}">
+
+    <input
+      type="text"
+      id="fld-pName"
+      value="${escapeAttr(product.name)}">
 
     <label>Description</label>
-    <textarea id="fld-pDesc" rows="4">${escapeHtml(product.description)}</textarea>
+
+    <textarea
+      id="fld-pDesc"
+      rows="5">${escapeHtml(product.description)}</textarea>
 
     <div class="two-col">
+
       <div>
+
         <label>Price *</label>
-        <input type="number" id="fld-pPrice" value="${product.price}" min="0">
+
+        <input
+          type="number"
+          id="fld-pPrice"
+          value="${product.price}"
+          min="0">
+
       </div>
+
       <div>
-        <label>Old Price (Discount دکھانے کے لیے)</label>
-        <input type="number" id="fld-pOldPrice" value="${product.oldPrice}" min="0">
+
+        <label>Old Price</label>
+
+        <input
+          type="number"
+          id="fld-pOldPrice"
+          value="${product.oldPrice}"
+          min="0">
+
       </div>
+
     </div>
 
     <label>Category</label>
+
     <select id="fld-pCategory">
-      <option value="">— منتخب کریں —</option>
-      ${client.categories.map(c => `<option value="${c.id}" ${c.id === product.categoryId ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
+
+      <option value="">
+        — Uncategorized —
+      </option>
+
+      ${
+        client.categories.map(c => `
+
+          <option
+            value="${escapeAttr(c.id)}"
+            ${
+              c.id === product.categoryId
+                ? "selected"
+                : ""
+            }>
+
+            ${escapeHtml(c.name)}
+
+          </option>
+
+        `).join("")
+      }
+
     </select>
 
     <label>Size Guide / Measurement Info</label>
-    <textarea id="fld-pSizeGuide" rows="3">${escapeHtml(product.sizeGuide)}</textarea>
+
+    <textarea
+      id="fld-pSizeGuide"
+      rows="4">${escapeHtml(product.sizeGuide)}</textarea>
 
     <label>Product Images</label>
-    <input type="file" id="fld-pImages" accept="image/*" multiple>
+
+    <input
+      type="file"
+      id="fld-pImages"
+      accept="image/*"
+      multiple>
+
     <div class="image-row">
-      ${product.images.map((img, i) => `
-        <div class="thumb-wrap">
-          <img class="thumb" src="${img}">
-          <button class="thumb-remove" data-imgidx="${i}">✕</button>
-        </div>
-      `).join("")}
+
+      ${
+        product.images.length
+          ? product.images.map((img, i) => `
+
+            <div class="thumb-wrap">
+
+              <img
+                class="thumb"
+                src="${escapeAttr(img)}">
+
+              <button
+                class="thumb-remove"
+                data-imgidx="${i}">
+
+                ✕
+
+              </button>
+
+            </div>
+
+          `).join("")
+          : `
+            <em>
+              ابھی کوئی image نہیں۔
+            </em>
+          `
+      }
+
     </div>
 
     <h3>Size / Color Variants</h3>
-    <table class="data-table" id="variantTable">
-      <thead><tr><th>Size</th><th>Color</th><th>Stock</th><th></th></tr></thead>
-      <tbody>
-        ${product.variants.map(v => `
-          <tr data-vid="${v.id}">
-            <td><input type="text" class="v-size" value="${escapeAttr(v.size)}" placeholder="مثلاً M, L, 40, 42"></td>
-            <td><input type="text" class="v-color" value="${escapeAttr(v.color)}" placeholder="مثلاً Black, Red"></td>
-            <td><input type="number" class="v-stock" value="${v.stock}" min="0"></td>
-            <td><button class="btn-small btn-danger v-remove">✕</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-    <button class="btn-secondary" id="btnAddVariant">+ Size/Color شامل کریں</button>
 
-    <div id="productErrors" class="error-box"></div>
+    <div style="overflow:auto">
+
+      <table
+        class="data-table"
+        id="variantTable">
+
+        <thead>
+
+          <tr>
+
+            <th>Size</th>
+            <th>Color</th>
+            <th>Stock</th>
+            <th></th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          ${
+            product.variants.length
+              ? product.variants.map(v => `
+
+                <tr data-vid="${escapeAttr(v.id)}">
+
+                  <td>
+
+                    <input
+                      type="text"
+                      class="v-size"
+                      value="${escapeAttr(v.size)}"
+                      placeholder="M, L, 40">
+
+                  </td>
+
+                  <td>
+
+                    <input
+                      type="text"
+                      class="v-color"
+                      value="${escapeAttr(v.color)}"
+                      placeholder="Black">
+
+                  </td>
+
+                  <td>
+
+                    <input
+                      type="number"
+                      class="v-stock"
+                      value="${v.stock}"
+                      min="0">
+
+                  </td>
+
+                  <td>
+
+                    <button
+                      class="btn-small btn-danger v-remove">
+
+                      ✕
+
+                    </button>
+
+                  </td>
+
+                </tr>
+
+              `).join("")
+              : `
+                <tr>
+
+                  <td colspan="4">
+
+                    <em>
+                      Variant optional ہے۔ اگر ضرورت ہو تو نیچے button سے شامل کریں۔
+                    </em>
+
+                  </td>
+
+                </tr>
+              `
+          }
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <button
+      class="btn-secondary"
+      id="btnAddVariant">
+
+      + Size / Color شامل کریں
+
+    </button>
+
+    <div
+      id="productErrors"
+      class="error-box">
+    </div>
+
     <div class="form-actions">
-      <button class="btn-primary" id="btnSaveProduct">Product محفوظ کریں</button>
+
+      <button
+        class="btn btn-primary"
+        id="btnSaveProduct">
+
+        💾 Product محفوظ کریں
+
+      </button>
+
     </div>
   `;
 
-  document.getElementById("btnBackToList").addEventListener("click", () => {
+  document.getElementById(
+    "btnBackToList"
+  ).addEventListener("click", () => {
+
     EditorState.activeProductId = null;
+
     renderActiveTab();
+
   });
 
-  document.getElementById("fld-pImages").addEventListener("change", async (e) => {
-    for (const file of Array.from(e.target.files)) {
-      product.images.push(await fileToDataURL(file));
+  document.getElementById(
+    "fld-pImages"
+  ).addEventListener(
+    "change",
+    async e => {
+
+      const files =
+        Array.from(e.target.files || []);
+
+      for (const file of files) {
+
+        if (!isImageFile(file)) {
+          continue;
+        }
+
+        product.images.push(
+          await fileToDataURL(file)
+        );
+      }
+
+      saveCurrentClient();
+
+      renderProductEditor(
+        container,
+        productId
+      );
+
+      updatePreview();
+
     }
-    persistAndPreview();
-    renderProductEditor(container, productId);
+  );
+
+  container.querySelectorAll(
+    "[data-imgidx]"
+  ).forEach(btn => {
+
+    btn.addEventListener(
+      "click",
+      () => {
+
+        product.images.splice(
+          Number(btn.dataset.imgidx),
+          1
+        );
+
+        saveCurrentClient();
+
+        renderProductEditor(
+          container,
+          productId
+        );
+
+        updatePreview();
+
+      }
+    );
   });
 
-  container.querySelectorAll(".thumb-remove").forEach(btn => {
-    btn.addEventListener("click", () => {
-      product.images.splice(Number(btn.dataset.imgidx), 1);
-      persistAndPreview();
-      renderProductEditor(container, productId);
-    });
+  document.getElementById(
+    "btnAddVariant"
+  ).addEventListener(
+    "click",
+    () => {
+
+      ProductManager.addVariant(
+        client,
+        productId
+      );
+
+      saveCurrentClient();
+
+      renderProductEditor(
+        container,
+        productId
+      );
+
+    }
+  );
+
+  container.querySelectorAll(
+    ".v-remove"
+  ).forEach(btn => {
+
+    btn.addEventListener(
+      "click",
+      e => {
+
+        const row =
+          e.target.closest("tr");
+
+        ProductManager.deleteVariant(
+          client,
+          productId,
+          row.dataset.vid
+        );
+
+        saveCurrentClient();
+
+        renderProductEditor(
+          container,
+          productId
+        );
+
+      }
+    );
   });
 
-  document.getElementById("btnAddVariant").addEventListener("click", () => {
-    ProductManager.addVariant(client, productId);
-    persistAndPreview();
-    renderProductEditor(container, productId);
-  });
+  document.getElementById(
+    "btnSaveProduct"
+  ).addEventListener(
+    "click",
+    () => {
 
-  container.querySelectorAll(".v-remove").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const row = e.target.closest("tr");
-      ProductManager.deleteVariant(client, productId, row.dataset.vid);
-      persistAndPreview();
-      renderProductEditor(container, productId);
-    });
-  });
+      product.name =
+        val("fld-pName");
 
-  document.getElementById("btnSaveProduct").addEventListener("click", () => {
-    product.name = val("fld-pName");
-    product.description = val("fld-pDesc");
-    product.price = Number(val("fld-pPrice")) || 0;
-    product.oldPrice = Number(val("fld-pOldPrice")) || 0;
-    product.categoryId = val("fld-pCategory");
-    product.sizeGuide = val("fld-pSizeGuide");
+      product.description =
+        val("fld-pDesc");
 
-    // ہر variant row سے تازہ data اٹھائیں
-    container.querySelectorAll("#variantTable tbody tr").forEach(row => {
-      const vid = row.dataset.vid;
-      ProductManager.updateVariant(client, productId, vid, {
-        size: row.querySelector(".v-size").value.trim(),
-        color: row.querySelector(".v-color").value.trim(),
-        stock: row.querySelector(".v-stock").value
+      product.price =
+        Number(val("fld-pPrice")) || 0;
+
+      product.oldPrice =
+        Number(val("fld-pOldPrice")) || 0;
+
+      product.categoryId =
+        val("fld-pCategory");
+
+      product.sizeGuide =
+        val("fld-pSizeGuide");
+
+      container.querySelectorAll(
+        "#variantTable tbody tr[data-vid]"
+      ).forEach(row => {
+
+        ProductManager.updateVariant(
+          client,
+          productId,
+          row.dataset.vid,
+          {
+
+            size:
+              row.querySelector(
+                ".v-size"
+              ).value.trim(),
+
+            color:
+              row.querySelector(
+                ".v-color"
+              ).value.trim(),
+
+            stock:
+              row.querySelector(
+                ".v-stock"
+              ).value
+
+          }
+        );
       });
-    });
 
-    const result = Validation.validateProduct(product);
-    showErrors("productErrors", result.errors);
-    if (result.valid) {
-      persistAndPreview();
+      const result =
+        Validation.validateProduct(
+          product
+        );
+
+      showErrors(
+        "productErrors",
+        result.errors
+      );
+
+      if (!result.valid) return;
+
+      saveCurrentClient();
+
       EditorState.activeProductId = null;
+
       renderActiveTab();
+
+      updatePreview();
+
+      flashMessage(
+        "Product محفوظ ہو گیا۔"
+      );
+
     }
-  });
+  );
 }
 
-/* -------------------------------------------------------
-   Tab: Policies
-------------------------------------------------------- */
+/* ================= POLICIES ================= */
+
 function renderPoliciesTab(container) {
-  const p = EditorState.currentClient.policies;
+
+  const p =
+    EditorState.currentClient.policies;
+
   container.innerHTML = `
-    <h2>Policies</h2>
+
+    <h2>📄 Policies</h2>
+
     <label>Shipping Policy</label>
-    <textarea id="fld-shipping" rows="4">${escapeHtml(p.shippingPolicy)}</textarea>
+
+    <textarea
+      id="fld-shipping"
+      rows="5">${escapeHtml(p.shippingPolicy)}</textarea>
 
     <label>Return Policy</label>
-    <textarea id="fld-return" rows="4">${escapeHtml(p.returnPolicy)}</textarea>
+
+    <textarea
+      id="fld-return"
+      rows="5">${escapeHtml(p.returnPolicy)}</textarea>
 
     <label>Privacy Policy</label>
-    <textarea id="fld-privacy" rows="4">${escapeHtml(p.privacyPolicy)}</textarea>
+
+    <textarea
+      id="fld-privacy"
+      rows="5">${escapeHtml(p.privacyPolicy)}</textarea>
 
     <label>Terms & Conditions</label>
-    <textarea id="fld-terms" rows="4">${escapeHtml(p.termsAndConditions)}</textarea>
+
+    <textarea
+      id="fld-terms"
+      rows="5">${escapeHtml(p.termsAndConditions)}</textarea>
 
     <div class="form-actions">
-      <button class="btn-primary" id="btnSavePolicies">محفوظ کریں</button>
+
+      <button
+        class="btn btn-primary"
+        id="btnSavePolicies">
+
+        💾 Policies محفوظ کریں
+
+      </button>
+
     </div>
   `;
-  document.getElementById("btnSavePolicies").addEventListener("click", () => {
-    p.shippingPolicy = val("fld-shipping");
-    p.returnPolicy = val("fld-return");
-    p.privacyPolicy = val("fld-privacy");
-    p.termsAndConditions = val("fld-terms");
-    persistAndPreview();
+
+  document.getElementById(
+    "btnSavePolicies"
+  ).addEventListener("click", () => {
+
+    p.shippingPolicy =
+      val("fld-shipping");
+
+    p.returnPolicy =
+      val("fld-return");
+
+    p.privacyPolicy =
+      val("fld-privacy");
+
+    p.termsAndConditions =
+      val("fld-terms");
+
+    saveCurrentClient();
+
+    updatePreview();
+
+    flashMessage(
+      "Policies محفوظ ہو گئی ہیں۔"
+    );
+
   });
 }
 
-/* -------------------------------------------------------
-   Tab: Contact & Social
-------------------------------------------------------- */
-function renderContactTab(container) {
-  const c = EditorState.currentClient.contact;
-  container.innerHTML = `
-    <h2>Contact & Social</h2>
+/* ================= CONTACT ================= */
 
-    <label>WhatsApp Number * (بغیر + کے، مثلاً 923001234567)</label>
-    <input type="text" id="fld-whatsapp" value="${escapeAttr(c.whatsappNumber)}">
+function renderContactTab(container) {
+
+  const c =
+    EditorState.currentClient.contact;
+
+  container.innerHTML = `
+
+    <h2>📞 Contact & Social</h2>
+
+    <label>
+      WhatsApp Number *
+      <small>
+        بغیر +، مثلاً 923001234567
+      </small>
+    </label>
+
+    <input
+      type="text"
+      id="fld-whatsapp"
+      value="${escapeAttr(c.whatsappNumber)}">
 
     <label>Phone Number</label>
-    <input type="text" id="fld-phone" value="${escapeAttr(c.phoneNumber)}">
+
+    <input
+      type="text"
+      id="fld-phone"
+      value="${escapeAttr(c.phoneNumber)}">
 
     <label>Address</label>
-    <input type="text" id="fld-address" value="${escapeAttr(c.address)}">
+
+    <input
+      type="text"
+      id="fld-address"
+      value="${escapeAttr(c.address)}">
 
     <label>City</label>
-    <input type="text" id="fld-city" value="${escapeAttr(c.city)}">
+
+    <input
+      type="text"
+      id="fld-city"
+      value="${escapeAttr(c.city)}">
 
     <label>Facebook URL</label>
-    <input type="text" id="fld-facebook" value="${escapeAttr(c.facebookUrl)}">
+
+    <input
+      type="url"
+      id="fld-facebook"
+      value="${escapeAttr(c.facebookUrl)}"
+      placeholder="https://facebook.com/...">
 
     <label>Instagram URL</label>
-    <input type="text" id="fld-instagram" value="${escapeAttr(c.instagramUrl)}">
 
-    <div id="contactErrors" class="error-box"></div>
+    <input
+      type="url"
+      id="fld-instagram"
+      value="${escapeAttr(c.instagramUrl)}"
+      placeholder="https://instagram.com/...">
+
+    <div
+      id="contactErrors"
+      class="error-box">
+    </div>
+
     <div class="form-actions">
-      <button class="btn-primary" id="btnSaveContact">محفوظ کریں</button>
+
+      <button
+        class="btn btn-primary"
+        id="btnSaveContact">
+
+        💾 Contact محفوظ کریں
+
+      </button>
+
     </div>
   `;
-  document.getElementById("btnSaveContact").addEventListener("click", () => {
-    c.whatsappNumber = val("fld-whatsapp").replace(/[^0-9]/g, "");
-    c.phoneNumber = val("fld-phone");
-    c.address = val("fld-address");
-    c.city = val("fld-city");
-    c.facebookUrl = val("fld-facebook");
-    c.instagramUrl = val("fld-instagram");
 
-    const result = Validation.validateStoreInfo(EditorState.currentClient.store, c);
-    showErrors("contactErrors", result.errors.filter(e => !e.includes("Store Name")));
-    persistAndPreview();
+  document.getElementById(
+    "btnSaveContact"
+  ).addEventListener("click", () => {
+
+    c.whatsappNumber =
+      val("fld-whatsapp")
+        .replace(/[^0-9]/g, "");
+
+    c.phoneNumber =
+      val("fld-phone");
+
+    c.address =
+      val("fld-address");
+
+    c.city =
+      val("fld-city");
+
+    c.facebookUrl =
+      val("fld-facebook");
+
+    c.instagramUrl =
+      val("fld-instagram");
+
+    const result =
+      Validation.validateStoreInfo(
+        EditorState.currentClient.store,
+        c
+      );
+
+    showErrors(
+      "contactErrors",
+      result.errors
+    );
+
+    if (!result.valid) return;
+
+    saveCurrentClient();
+
+    updatePreview();
+
+    flashMessage(
+      "Contact information محفوظ ہو گئی۔"
+    );
+
   });
 }
 
-/* -------------------------------------------------------
-   Tab: Clients (Save/Load/New/Export/Import)
-------------------------------------------------------- */
+/* ================= CLIENTS ================= */
+
 function renderClientsTab(container) {
-  const ids = StorageManager.listClientIds();
+
+  const ids =
+    StorageManager.listClientIds();
+
   container.innerHTML = `
-    <h2>Clients Manager</h2>
-    <p>موجودہ Client ID: <strong>${EditorState.currentClient.meta.clientId}</strong></p>
+
+    <h2>👥 Clients Manager</h2>
+
+    <p>
+      Current Client ID:
+
+      <strong>
+        ${escapeHtml(
+          EditorState.currentClient.meta.clientId
+        )}
+      </strong>
+
+    </p>
 
     <div class="form-actions">
-      <button class="btn-primary" id="btnNewClient">+ نیا Client شروع کریں</button>
-      <button class="btn-secondary" id="btnExportJson">Export (JSON) کریں</button>
-      <label class="btn-secondary file-label">Import (JSON)
-        <input type="file" id="fld-importJson" accept="application/json" style="display:none">
+
+      <button
+        class="btn btn-primary"
+        id="btnNewClient">
+
+        + نیا Client
+
+      </button>
+
+      <button
+        class="btn-secondary"
+        id="btnExportJson">
+
+        Export JSON
+
+      </button>
+
+      <label class="btn-secondary file-label">
+
+        Import JSON
+
+        <input
+          type="file"
+          id="fld-importJson"
+          accept="application/json"
+          hidden>
+
       </label>
+
     </div>
 
-    <table class="data-table">
-      <thead><tr><th>Client ID</th><th>Store Name</th><th></th></tr></thead>
-      <tbody>
-        ${ids.map(id => {
-          const c = StorageManager.loadClient(id);
-          return `<tr>
-            <td>${id}</td>
-            <td>${escapeHtml(c.store.storeName || "(بلا نام)")}</td>
-            <td>
-              <button class="btn-small" data-load="${id}">Load</button>
-              <button class="btn-small btn-danger" data-remove="${id}">Delete</button>
-            </td>
-          </tr>`;
-        }).join("") || `<tr><td colspan="3"><em>ابھی کوئی محفوظ شدہ client نہیں۔</em></td></tr>`}
-      </tbody>
-    </table>
+    <div style="overflow:auto">
+
+      <table class="data-table">
+
+        <thead>
+
+          <tr>
+
+            <th>Client ID</th>
+            <th>Store Name</th>
+            <th>Actions</th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          ${
+            ids.length
+              ? ids.map(id => {
+
+                  const c =
+                    StorageManager.loadClient(id);
+
+                  return `
+
+                  <tr>
+
+                    <td>
+                      ${escapeHtml(id)}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        c?.store?.storeName ||
+                        "(بلا نام)"
+                      )}
+                    </td>
+
+                    <td>
+
+                      <button
+                        class="btn-small"
+                        data-load="${escapeAttr(id)}">
+
+                        Load
+
+                      </button>
+
+                      <button
+                        class="btn-small btn-danger"
+                        data-remove="${escapeAttr(id)}">
+
+                        Delete
+
+                      </button>
+
+                    </td>
+
+                  </tr>
+
+                `;
+
+                }).join("")
+              : `
+                <tr>
+
+                  <td colspan="3">
+                    ابھی کوئی saved client نہیں۔
+                  </td>
+
+                </tr>
+              `
+          }
+
+        </tbody>
+
+      </table>
+
+    </div>
   `;
 
-  document.getElementById("btnNewClient").addEventListener("click", () => {
-    if (!confirm("موجودہ unsaved تبدیلیاں ضائع ہو سکتی ہیں۔ نیا client شروع کریں؟")) return;
-    EditorState.currentClient = createEmptyClientData();
-    EditorState.currentClient.meta.clientId = generateId("client");
+  document.getElementById(
+    "btnNewClient"
+  ).addEventListener("click", () => {
+
+    if (
+      !confirm(
+        "نیا Client شروع کرنا چاہتے ہیں؟"
+      )
+    ) return;
+
+    EditorState.currentClient =
+      createEmptyClientData();
+
     EditorState.activeProductId = null;
+
+    localStorage.removeItem(
+      StorageManager.ACTIVE_CLIENT_KEY
+    );
+
+    refreshClientDropdown();
     renderActiveTab();
     updatePreview();
+
+    flashMessage(
+      "نیا Client تیار ہے۔"
+    );
+
   });
 
-  document.getElementById("btnExportJson").addEventListener("click", () => {
-    StorageManager.exportClientAsJSON(EditorState.currentClient);
+  document.getElementById(
+    "btnExportJson"
+  ).addEventListener("click", () => {
+
+    StorageManager.exportClientAsJSON(
+      EditorState.currentClient
+    );
+
   });
 
-  document.getElementById("fld-importJson").addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const data = await StorageManager.importClientFromJSONFile(file);
-      EditorState.currentClient = data;
-      EditorState.activeProductId = null;
-      persistAndPreview();
-      renderActiveTab();
-      alert("Client data کامیابی سے import ہو گیا۔");
-    } catch (err) {
-      alert(err.message);
-    }
-  });
+  document.getElementById(
+    "fld-importJson"
+  ).addEventListener(
+    "change",
+    async e => {
 
-  container.querySelectorAll("[data-load]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      EditorState.currentClient = StorageManager.loadClient(btn.dataset.load);
-      EditorState.activeProductId = null;
-      StorageManager.setActiveClient(btn.dataset.load);
-      renderActiveTab();
-      updatePreview();
-    });
-  });
+      const file =
+        e.target.files[0];
 
-  container.querySelectorAll("[data-remove]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (confirm("کیا واقعی یہ client مکمل طور پر حذف کرنا چاہتے ہیں؟")) {
-        StorageManager.deleteClient(btn.dataset.remove);
+      if (!file) return;
+
+      try {
+
+        const imported =
+          await StorageManager
+            .importClientFromJSONFile(file);
+
+        /*
+         * Imported ID اگر موجود ہو تو بھی
+         * existing client کو silently overwrite
+         * نہیں کرتے؛ نیا ID بناتے ہیں۔
+         */
+
+        const originalId =
+          imported.meta.clientId;
+
+        if (
+          StorageManager.loadClient(originalId)
+        ) {
+
+          imported.meta.clientId =
+            generateId("client");
+        }
+
+        EditorState.currentClient =
+          imported;
+
+        EditorState.activeProductId = null;
+
+        saveCurrentClient();
+
+        refreshClientDropdown();
         renderActiveTab();
+        updatePreview();
+
+        alert(
+          "Client data کامیابی سے import ہو گیا۔"
+        );
+
+      } catch (error) {
+
+        alert(error.message);
       }
-    });
-  });
-}
 
-/* -------------------------------------------------------
-   Global actions (top bar: Save Client, Generate placeholder)
-------------------------------------------------------- */
-function bindGlobalActions() {
-  document.getElementById("btnGlobalSave").addEventListener("click", () => {
-    try {
-      StorageManager.saveClient(EditorState.currentClient);
-      flashMessage("Client محفوظ ہو گیا۔");
-      refreshClientDropdown();
-    } catch (err) {
-      alert(err.message);
+      e.target.value = "";
+
     }
+  );
+
+  container.querySelectorAll(
+    "[data-load]"
+  ).forEach(btn => {
+
+    btn.addEventListener(
+      "click",
+      () => {
+
+        const loaded =
+          StorageManager.loadClient(
+            btn.dataset.load
+          );
+
+        if (!loaded) {
+
+          alert("Client نہیں ملا۔");
+
+          return;
+        }
+
+        EditorState.currentClient =
+          loaded;
+
+        EditorState.activeProductId =
+          null;
+
+        StorageManager.setActiveClient(
+          loaded.meta.clientId
+        );
+
+        refreshClientDropdown();
+        renderActiveTab();
+        updatePreview();
+
+        flashMessage(
+          "Client load ہو گیا۔"
+        );
+
+      }
+    );
   });
 
-  // Part 3 (Website Generator) میں یہ بٹن اصل ZIP جنریشن سے جوڑا جائے گا۔
-  document.getElementById("btnGlobalGenerate").addEventListener("click", () => {
-    alert("Website Generator ابھی Part 3 میں شامل کیا جائے گا۔ فی الحال آپ Client کا مکمل data یہاں تیار اور محفوظ کر سکتے ہیں۔");
+  container.querySelectorAll(
+    "[data-remove]"
+  ).forEach(btn => {
+
+    btn.addEventListener(
+      "click",
+      () => {
+
+        if (
+          !confirm(
+            "کیا واقعی یہ Client مکمل delete کرنا چاہتے ہیں؟"
+          )
+        ) return;
+
+        const deletingId =
+          btn.dataset.remove;
+
+        StorageManager.deleteClient(
+          deletingId
+        );
+
+        if (
+          EditorState.currentClient
+            .meta.clientId === deletingId
+        ) {
+
+          const remaining =
+            StorageManager.listClientIds();
+
+          if (remaining.length) {
+
+            const next =
+              StorageManager.loadClient(
+                remaining[0]
+              );
+
+            EditorState.currentClient =
+              next;
+
+            StorageManager.setActiveClient(
+              next.meta.clientId
+            );
+
+          } else {
+
+            EditorState.currentClient =
+              createEmptyClientData();
+
+            localStorage.removeItem(
+              StorageManager.ACTIVE_CLIENT_KEY
+            );
+          }
+
+          EditorState.activeProductId = null;
+        }
+
+        refreshClientDropdown();
+        renderActiveTab();
+        updatePreview();
+
+        flashMessage(
+          "Client delete ہو گیا۔"
+        );
+
+      }
+    );
   });
 }
 
-function initClientSelector() {
-  // Placeholder — dropdown کو refreshClientDropdown() کے ذریعے پُر کیا جاتا ہے۔
+/* ================= GLOBAL ACTIONS ================= */
+
+function bindGlobalActions() {
+
+  document.getElementById(
+    "btnGlobalSave"
+  ).addEventListener("click", () => {
+
+    try {
+
+      saveCurrentClient();
+
+      refreshClientDropdown();
+
+      flashMessage(
+        "Client محفوظ ہو گیا۔"
+      );
+
+    } catch (error) {
+
+      alert(error.message);
+    }
+
+  });
+
+  document.getElementById(
+    "btnGlobalGenerate"
+  ).addEventListener("click", () => {
+
+    alert(
+      "Client Website Generator Part 3 میں آئے گا۔ ابھی Master Editor میں Client data تیار اور محفوظ کیا جا سکتا ہے۔"
+    );
+
+  });
+}
+
+/* ================= HELPERS ================= */
+
+function saveCurrentClient() {
+
+  EditorState.currentClient =
+    normalizeClientData(
+      EditorState.currentClient
+    );
+
+  StorageManager.saveClient(
+    EditorState.currentClient
+  );
 }
 
 function refreshClientDropdown() {
-  const select = document.getElementById("quickClientSelect");
+
+  const select =
+    document.getElementById(
+      "quickClientSelect"
+    );
+
   if (!select) return;
-  const ids = StorageManager.listClientIds();
-  select.innerHTML = `<option value="">— Client منتخب کریں —</option>` +
+
+  const ids =
+    StorageManager.listClientIds();
+
+  const currentId =
+    EditorState.currentClient
+      ?.meta?.clientId || "";
+
+  select.innerHTML =
+    `<option value="">
+      — Client منتخب کریں —
+    </option>` +
+
     ids.map(id => {
-      const c = StorageManager.loadClient(id);
-      const label = c.store.storeName || id;
-      const selected = id === EditorState.currentClient.meta.clientId ? "selected" : "";
-      return `<option value="${id}" ${selected}>${escapeHtml(label)}</option>`;
+
+      const c =
+        StorageManager.loadClient(id);
+
+      return `
+        <option
+          value="${escapeAttr(id)}"
+          ${
+            id === currentId
+              ? "selected"
+              : ""
+          }>
+
+          ${escapeHtml(
+            c?.store?.storeName ||
+            id
+          )}
+
+        </option>
+      `;
+
     }).join("");
 
   select.onchange = () => {
+
     if (!select.value) return;
-    EditorState.currentClient = StorageManager.loadClient(select.value);
+
+    const loaded =
+      StorageManager.loadClient(
+        select.value
+      );
+
+    if (!loaded) return;
+
+    EditorState.currentClient =
+      loaded;
+
     EditorState.activeProductId = null;
-    StorageManager.setActiveClient(select.value);
+
+    StorageManager.setActiveClient(
+      loaded.meta.clientId
+    );
+
     renderActiveTab();
     updatePreview();
+
   };
 }
 
-/* -------------------------------------------------------
-   Helpers
-------------------------------------------------------- */
-function persistAndPreview() {
-  // خودکار طور پر localStorage میں بھی رکھ دیں (safety net)، مکمل "Save" الگ سے موجود ہے۔
-  try { StorageManager.saveClient(EditorState.currentClient); } catch (e) { /* clientId نہ ہو تو نظر انداز */ }
-  updatePreview();
-}
-
 function updatePreview() {
-  LivePreview.render(EditorState.currentClient);
+
+  LivePreview.render(
+    EditorState.currentClient
+  );
 }
 
 function val(id) {
-  return document.getElementById(id).value.trim();
-}
 
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str).replace(/[&<>"']/g, m => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[m]));
-}
+  const el =
+    document.getElementById(id);
 
-function escapeAttr(str) {
-  return escapeHtml(str);
-}
-
-function showErrors(containerId, errors) {
-  const box = document.getElementById(containerId);
-  if (!box) return;
-  box.innerHTML = errors.length
-    ? `<ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join("")}</ul>`
+  return el
+    ? el.value.trim()
     : "";
 }
 
-function flashMessage(msg) {
-  const el = document.getElementById("flashMessage");
-  el.textContent = msg;
+function escapeHtml(value) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  return String(value).replace(
+    /[&<>"']/g,
+    char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[char])
+  );
+}
+
+function escapeAttr(value) {
+
+  return escapeHtml(value);
+}
+
+function showErrors(
+  containerId,
+  errors
+) {
+
+  const box =
+    document.getElementById(
+      containerId
+    );
+
+  if (!box) return;
+
+  box.innerHTML =
+    errors.length
+      ? `
+        <ul>
+
+          ${errors.map(
+            e =>
+              `<li>${escapeHtml(e)}</li>`
+          ).join("")}
+
+        </ul>
+      `
+      : "";
+}
+
+function flashMessage(message) {
+
+  const el =
+    document.getElementById(
+      "flashMessage"
+    );
+
+  if (!el) return;
+
+  el.textContent = message;
+
   el.classList.add("show");
-  setTimeout(() => el.classList.remove("show"), 2000);
+
+  clearTimeout(
+    flashMessage.timer
+  );
+
+  flashMessage.timer =
+    setTimeout(
+      () => el.classList.remove("show"),
+      2200
+    );
 }
 
 function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+
+  return new Promise(
+    (resolve, reject) => {
+
+      const reader =
+        new FileReader();
+
+      reader.onload =
+        () => resolve(reader.result);
+
+      reader.onerror =
+        () => reject(
+          new Error(
+            "Image پڑھنے میں ناکامی ہوئی۔"
+          )
+        );
+
+      reader.readAsDataURL(file);
+    }
+  );
+}
+
+function isImageFile(file) {
+
+  return Boolean(
+    file &&
+    typeof file.type === "string" &&
+    file.type.startsWith("image/")
+  );
 }
