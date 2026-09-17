@@ -1,52 +1,96 @@
+FILE: admin-editor.html
+
 <!DOCTYPE html>
 <html lang="ur" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Master Editor — Private (صرف مالک کے لیے)</title>
+  <meta name="theme-color" content="#16a34a">
+  <title>Master Editor — Private</title>
   <link rel="stylesheet" href="css/admin-editor.css">
 </head>
+
 <body>
 
-  <div class="topbar">
-    <div class="topbar-title">🔒 Master Website Editor <span>Private — صرف آپ کے استعمال کے لیے</span></div>
-    <div class="topbar-actions">
-      <select id="quickClientSelect"></select>
-      <button class="btn-primary" id="btnGlobalSave">Client محفوظ کریں</button>
-      <button class="btn-accent" id="btnGlobalGenerate">Generate Client Website</button>
+<header class="topbar">
+  <div class="topbar-title">
+    <strong>🔒 Master Website Editor</strong>
+    <span>Private — صرف مالک کے لیے</span>
+  </div>
+
+  <div class="topbar-actions">
+    <select id="quickClientSelect">
+      <option value="">— Client منتخب کریں —</option>
+    </select>
+
+    <button class="btn btn-primary" id="btnGlobalSave">
+      💾 Client محفوظ کریں
+    </button>
+
+    <button class="btn btn-accent" id="btnGlobalGenerate">
+      ⚡ Generate Client Website
+    </button>
+  </div>
+</header>
+
+<div id="flashMessage" class="flash"></div>
+
+<div class="editor-layout">
+
+  <nav class="sidebar">
+    <div class="sidebar-title">EDITOR MENU</div>
+
+    <button class="tab-btn active" data-tab="store-info">
+      🏪 <span>Store Info</span>
+    </button>
+
+    <button class="tab-btn" data-tab="branding">
+      🎨 <span>Branding & Banners</span>
+    </button>
+
+    <button class="tab-btn" data-tab="products">
+      📦 <span>Products</span>
+    </button>
+
+    <button class="tab-btn" data-tab="policies">
+      📄 <span>Policies</span>
+    </button>
+
+    <button class="tab-btn" data-tab="contact">
+      📞 <span>Contact & Social</span>
+    </button>
+
+    <button class="tab-btn" data-tab="clients">
+      👥 <span>Clients Manager</span>
+    </button>
+  </nav>
+
+  <main class="tab-content" id="tabContent"></main>
+
+  <aside class="preview-pane">
+    <div class="preview-head">
+      <div>
+        <strong>Live Preview</strong>
+        <small>تبدیلیاں یہاں فوراً نظر آئیں گی</small>
+      </div>
+      <span class="live-dot">LIVE</span>
     </div>
-  </div>
 
-  <div id="flashMessage" class="flash"></div>
+    <iframe
+      id="previewFrame"
+      class="preview-frame"
+      title="Live Store Preview">
+    </iframe>
+  </aside>
 
-  <div class="editor-layout">
+</div>
 
-    <nav class="sidebar">
-      <button class="tab-btn active" data-tab="store-info">Store Info</button>
-      <button class="tab-btn" data-tab="branding">Branding & Banners</button>
-      <button class="tab-btn" data-tab="products">Products</button>
-      <button class="tab-btn" data-tab="policies">Policies</button>
-      <button class="tab-btn" data-tab="contact">Contact & Social</button>
-      <button class="tab-btn" data-tab="clients">Clients Manager</button>
-    </nav>
+<script src="js/store-data.js"></script>
+<script src="js/validation.js"></script>
+<script src="js/storage-manager.js"></script>
+<script src="js/product-manager.js"></script>
+<script src="js/live-preview.js"></script>
+<script src="js/admin-editor.js"></script>
 
-    <main class="tab-content" id="tabContent">
-      <!-- admin-editor.js کے ذریعے بھرا جائے گا -->
-    </main>
-
-    <aside class="preview-pane">
-      <div class="preview-label">Live Preview</div>
-      <iframe id="previewFrame" class="preview-frame"></iframe>
-    </aside>
-
-  </div>
-
-  <!-- Scripts: ترتیب اہم ہے -->
-  <script src="js/store-data.js"></script>
-  <script src="js/validation.js"></script>
-  <script src="js/storage-manager.js"></script>
-  <script src="js/product-manager.js"></script>
-  <script src="js/live-preview.js"></script>
-  <script src="js/admin-editor.js"></script>
 </body>
 </html>
